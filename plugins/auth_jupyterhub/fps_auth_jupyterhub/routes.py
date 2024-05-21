@@ -101,10 +101,32 @@ def auth_factory(
                 request: Request,
                 jupyverse_jupyterhub_token: Annotated[Union[str, None], Cookie()] = None,
             ):
+                print("running in the current user ............")
+                jupyverse_jupyterhub_token = os.environ['JUPYTERHUB_API_TOKEN']
+
                 if jupyverse_jupyterhub_token is not None:
                     hub_user = await self.hub_auth.user_for_token(
                         jupyverse_jupyterhub_token, use_cache=False, sync=False
                     )
+                    ### temp add the user to db
+                    async with self.db_lock:
+                        user_db = await db_session.scalar(
+                            select(UserDB).filter_by(token=jupyverse_jupyterhub_token)
+                        )
+                        print(user_db)
+                        if user_db:
+                            for k, v in hub_user.items():
+                                setattr(user_db, k, v)
+                        else:
+                            db_session.add(
+                                UserDB(
+                                    token=jupyverse_jupyterhub_token,
+                                    name=hub_user["name"],
+                                    username=hub_user["name"],
+                                ),
+                            )
+                        await db_session.commit()
+
                     scopes = self.hub_auth.check_scopes(self.hub_auth.access_scopes, hub_user)
                     if not scopes:
                         raise HTTPException(
@@ -156,6 +178,9 @@ def auth_factory(
             self, jupyverse_jupyterhub_token: Annotated[Union[str, None], Cookie()] = None
         ) -> Callable:
             async def _(data: Dict[str, Any]) -> JupyterHubUser:
+                #TODO: add the jupyterhub token
+                print("running the update_user function...........")
+                jupyverse_jupyterhub_token = os.environ['JUPYTERHUB_API_TOKEN']
                 if jupyverse_jupyterhub_token is not None:
                     async with self.db_lock:
                         user_db = await db_session.scalar(
@@ -176,9 +201,14 @@ def auth_factory(
             async def _(
                 websocket: WebSocket,
             ) -> Optional[Tuple[WebSocket, Optional[Dict[str, List[str]]]]]:
+                print("running the web socket auth...............")
                 accept_websocket = False
                 if "jupyverse_jupyterhub_token" in websocket._cookies:
                     jupyverse_jupyterhub_token = websocket._cookies["jupyverse_jupyterhub_token"]
+                    
+                    # TODO: replace to jupyter token
+                    jupyverse_jupyterhub_token = os.environ['JUPYTERHUB_API_TOKEN']
+
                     async with self.db_lock:
                         user_db = await db_session.scalar(
                             select(UserDB).filter_by(token=jupyverse_jupyterhub_token)

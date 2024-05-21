@@ -177,7 +177,12 @@ class _Lab(Lab):
         for s in schemas:
             for d1 in s.iterdir():
                 for d2 in d1.iterdir():
-                    package = json.loads((d2 / "package.json.orig").read_text())
+                    #TODO: temp remove the diffrent file
+                    if '.json' in str(d2) or '.db' in str(d2) or 'core' in str(d2) or '.ipynb_checkpoints' in str(d2) or 'Untitled.' in str(d2):
+                        #package = json.loads((d2).read_text())
+                        continue
+                    else:
+                        package = json.loads((d2 / "package.json.orig").read_text())
                     for path in [p for p in d2.iterdir() if p.suffix == ".json"]:
                         schema = json.loads(path.read_text())
                         key = f"{path.parent.name}:{path.stem}"
