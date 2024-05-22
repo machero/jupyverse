@@ -48,16 +48,23 @@ class FileIdManager(metaclass=Singleton):
         self.lock = asyncio.Lock()
 
     async def get_id(self, path: str) -> Optional[str]:
-        await self.initialized.wait()
         async with self.lock:
             async with aiosqlite.connect(self.db_path) as db:
                 async with db.execute("SELECT id FROM fileids WHERE path = ?", (path,)) as cursor:
                     async for (idx,) in cursor:
                         return idx
-                    return None
+                    paths = Path(path)
+                    if paths.exists():
+                        idx = uuid4().hex
+                        mtime = (await apath.stat()).st_mtime
+                        await db.execute("INSERT INTO fileids VALUES (?, ?, ?)", (idx, path, mtime))
+                        await db.commit()
+                        return idx
+                    else:
+                        return None
+
 
     async def get_path(self, idx: str) -> Optional[str]:
-        await self.initialized.wait()
         async with self.lock:
             async with aiosqlite.connect(self.db_path) as db:
                 async with db.execute("SELECT path FROM fileids WHERE id = ?", (idx,)) as cursor:
@@ -66,7 +73,6 @@ class FileIdManager(metaclass=Singleton):
                     return None
 
     async def index(self, path: str) -> Optional[str]:
-        await self.initialized.wait()
         async with self.lock:
             async with aiosqlite.connect(self.db_path) as db:
                 apath = Path(path)
@@ -87,17 +93,6 @@ class FileIdManager(metaclass=Singleton):
                     "CREATE TABLE fileids "
                     "(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, mtime REAL NOT NULL)"
                 )
-                await db.commit()
-
-        # index files
-        async with self.lock:
-            async with aiosqlite.connect(self.db_path) as db:
-                async for path in Path().rglob("*"):
-                    idx = uuid4().hex
-                    mtime = (await path.stat()).st_mtime
-                    await db.execute(
-                        "INSERT INTO fileids VALUES (?, ?, ?)", (idx, str(path), mtime)
-                    )
                 await db.commit()
                 self.initialized.set()
 

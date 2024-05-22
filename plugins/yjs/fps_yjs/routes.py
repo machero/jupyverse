@@ -76,6 +76,7 @@ class _Yjs(Yjs):
     ):
         # we need to process the request manually
         # see https://github.com/tiangolo/fastapi/issues/3373#issuecomment-1306003451
+        print("ready to create roomid..................")
         create_document_session = CreateDocumentSession(**(await request.json()))
         idx = await self.contents.file_id_manager.get_id(path)
         res = {
