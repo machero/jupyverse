@@ -133,7 +133,7 @@ class YWebsocket:
         try:
             await self._websocket.send_bytes(message)
         except ConnectionClosedOK:
-            return
+            logger.warning("WebSocket connection closed while attempting to send a message.")
 
     async def recv(self):
         return await self._websocket.receive_bytes()

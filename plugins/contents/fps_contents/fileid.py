@@ -48,6 +48,7 @@ class FileIdManager(metaclass=Singleton):
         self.lock = asyncio.Lock()
 
     async def get_id(self, path: str) -> Optional[str]:
+        await self.initialized.wait()
         async with self.lock:
             async with aiosqlite.connect(self.db_path) as db:
                 async with db.execute("SELECT id FROM fileids WHERE path = ?", (path,)) as cursor:
@@ -65,6 +66,7 @@ class FileIdManager(metaclass=Singleton):
 
 
     async def get_path(self, idx: str) -> Optional[str]:
+        await self.initialized.wait()
         async with self.lock:
             async with aiosqlite.connect(self.db_path) as db:
                 async with db.execute("SELECT path FROM fileids WHERE id = ?", (idx,)) as cursor:
@@ -73,6 +75,7 @@ class FileIdManager(metaclass=Singleton):
                     return None
 
     async def index(self, path: str) -> Optional[str]:
+        await self.initialized.wait()
         async with self.lock:
             async with aiosqlite.connect(self.db_path) as db:
                 apath = Path(path)
